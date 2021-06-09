@@ -33,11 +33,6 @@ app.get("/urls/new", (req, res) => {
 app.get("/urls/:shortURL", (req, res) => {
   const shortUrl = req.params.shortURL
   const templateVars = { shortURL: shortUrl, longURL: urlDatabase[shortUrl] };
-  console.log(req.params.shortURL);
-  console.log(shortUrl)
- console.log(urlDatabase)
-  console.log(urlDatabase[shortUrl])
-  console.log(templateVars) //here your template vars the longurl is undefined
   res.render("urls_show", templateVars);
 });
 
@@ -62,7 +57,6 @@ app.get("/fetch", (req, res) => {
   res.send(`a = ${a}`);
 });
 
-//HERE -------------------------------
 app.post("/urls", (req, res) => {
   console.log(req.body.longURL);
   const newURL = req.body.longURL;
@@ -72,18 +66,27 @@ app.post("/urls", (req, res) => {
   res.redirect(`/urls/${newShortString}`)
 });
 
-//HERE ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 app.get("/u/:shortURL", (req, res) => {
   const longURL = urlDatabase[req.params.shortURL];
   res.redirect(longURL);
 });
-
+// // edit 
+app.post("/urls/:id", (req, res) => {
+  urlDatabase[req.params.id] = req.body.editURL;
+  res.redirect("/urls");
+});
+app.post("/urls/:shortid/edit", (req, res) => {
+const shortid = req.params.shortid
+console.log(shortid)
+  res.redirect(`/urls/${shortid}`);
+})
+// delete 
 app.post("/urls/:shortURL/delete", (req, res) => {
   delete urlDatabase[req.params.shortURL];
 
   res.redirect("/urls");
 })
+
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
 });
