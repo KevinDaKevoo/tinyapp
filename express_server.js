@@ -131,8 +131,6 @@ app.post("/login", (req, res) => {
   const user_id = urlIDLookup(req.body.email)
   if (emailLookup(req.body.email)) {
     if (passwordLookup(req.body.password)) {
-      console.log(req.body.password)
-      console.log(user_id)
       res.cookie("user_id", user_id);
       return res.redirect("/urls")
     } else {
@@ -163,7 +161,6 @@ app.post("/register", (req, res) => {
   const user = { id, email, password };
   users[id] = user;
   const templateVars = { email };
-  console.log(users)
 
   if (Object.values(req.body).some((value) => value === "")) {
     res.status(400).send("Email and Password Cannot Be Empty");
