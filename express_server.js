@@ -8,6 +8,7 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.set("view engine", "ejs")
 app.use(cookieParser())
 
+//Generates random string for shortURL use
 const generateRandomString = function () {
   const characters = 'abcdefghijklmnopqrstuvwxyz';
   let results = '';
@@ -19,6 +20,7 @@ const generateRandomString = function () {
   return results;
 };
 
+//Helper function for looking up email exists
 const emailLookup = function(input) {
   for (let user of Object.values(users)) {
 
@@ -29,6 +31,7 @@ const emailLookup = function(input) {
   return null
 }
 
+//Helper function for looking up Id from email
 const urlIDLookup = function (input) {
   for (let user of Object.keys(users)) {
       if (users[user].email === input) {
@@ -36,6 +39,8 @@ const urlIDLookup = function (input) {
       }
   }
 }
+
+//Helper function for looking up password matches
 const passwordLookup = function(input) {
   for (let user of Object.values(users)) {
     if (user.password === input) {
@@ -47,6 +52,7 @@ const passwordLookup = function(input) {
   return false;
 }
 
+//Users 
 let users = { 
   "userRandomID": {
     id: "userRandomID", 
@@ -60,11 +66,13 @@ let users = {
   }
 }
 
+//URLS
 let urlDatabase = {
   b6UTxQ: { longURL: "https://www.tsn.ca", userID: "userRandomID" },
   i3BoGr: { longURL: "https://www.google.ca", userID: "user2RandomID" }
 };
 
+//URLS for specific users
 const urlsForUser = function (id) {
   let userDatabase = {};
   for (let url of Object.keys(urlDatabase)) {
@@ -81,6 +89,7 @@ app.get("/", (req, res) => {
   res.send("Hello!");
 });
 
+// /urls page
 app.get("/urls", (req, res) => {
   if (req.cookies["user_id"]) {
   const templateVars = {
@@ -94,6 +103,7 @@ app.get("/urls", (req, res) => {
 
 });
 
+// /urs/new page
 app.get("/urls/new", (req, res) => {
   const templateVars = {
     user: users[req.cookies["user_id"]],
@@ -101,6 +111,7 @@ app.get("/urls/new", (req, res) => {
   res.render("urls_new", templateVars);
 });
 
+// /urls/:shortURL page
 app.get("/urls/:shortURL", (req, res) => {
   if (req.cookies["user_id"]) {
     const shortURL = req.params.shortURL;
@@ -119,25 +130,28 @@ app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 });
 
+// Getting information from /urls page
 app.post("/urls", (req, res) => {
   let shortURL = generateRandomString();
   urlDatabase[shortURL] = {
     longURL: req.body.longURL,
     userID: req.cookies["user_id"]
   };
-  res.redirect(`/urls/${shortURL}`);
+  res.redirect(`/urls`);
 });
 
+//Redirection to longURL from shortURL
 app.get("/u/:shortURL", (req, res) => {
   const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
 });
+
 // edit URL
 app.post("/urls/:id", (req, res) => {
   urlDatabase[req.params.id] = req.body.editURL;
   res.redirect("/urls");
 });
-
+//edit URL
 app.post("/urls/:shortid/edit", (req, res) => {
 const shortid = req.params.shortid
 const cookie = req.cookies["user_id"]
@@ -153,6 +167,7 @@ if (cookie) {
 
   res.redirect(`/urls/${shortid}`);
 })
+
 // deletes URL
 app.post("/urls/:shortURL/delete", (req, res) => {
 
@@ -161,8 +176,6 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 });
 
 //login accepts data from login form, authenticates user
-
-
 app.post("/login", (req, res) => {
 
   const user_id = urlIDLookup(req.body.email);
@@ -180,44 +193,49 @@ app.post("/login", (req, res) => {
   
 });
 
+//Logout
 app.get("/logout", (req, res) => {
   res.clearCookie("user_id");
-  console.log("Did i come here?")
   res.redirect("/register");
 });
 
-
+//Registration page
 app.get("/register", (req, res) => {
   const templateVars = { user: users[req.cookies["user_id"]] };
-  console.log(templateVars)
-  console.log("Why am i here")
   res.render("urls_register", templateVars);
 });
 
+//Registering account
 app.post("/register", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
   const id = generateRandomString();
   const user = { id, email, password };
-  users[id] = user;
   const templateVars = { email };
+
 
   if (Object.values(req.body).some((value) => value === "")) {
     res.status(400).send("Email and Password Cannot Be Empty");
-  } else if (emailLookup(email)) {
-    res.status(400).send("Email has already been taken, please use another email");
   } 
-
-  res.cookie("user_id", id);
+  if (emailLookup(email)) {
+    res.status(400).send("Email has already been taken, please use another email");
+  }
+  users[id] = {
+    id: id,
+    email: email,
+    password: password
+  }
+  res.cookie('user_id', id);
   res.redirect("/urls");
-  
 });
 
+//Login Page
 app.get("/login", (req, res) => {
   const templateVars = { user: users[req.cookies["user_id"]] };
   res.render("urls_login", templateVars)
 })
 
+//Server start and message
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
 });
