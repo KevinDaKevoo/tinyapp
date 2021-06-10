@@ -21,12 +21,12 @@ const generateRandomString = function () {
 
 const emailLookup = function(input) {
   for (let user of Object.values(users)) {
+
     if (user.email === input) {
       return true;
-    } else {
-      return false;
     }
   }
+  return null
 }
 
 const urlIDLookup = function (input) {
@@ -41,9 +41,10 @@ const passwordLookup = function(input) {
     if (user.password === input) {
       return true;
     } else {
-      return false;
+   
     }
   }
+  return false;
 }
 
 let users = { 
@@ -55,13 +56,25 @@ let users = {
  "user2RandomID": {
     id: "user2RandomID", 
     email: "user2@example.com", 
-    password: "dishwasher-funk"
+    password: "9876"
   }
 }
 
 let urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  b6UTxQ: { longURL: "https://www.tsn.ca", userID: "userRandomID" },
+  i3BoGr: { longURL: "https://www.google.ca", userID: "user2RandomID" }
+};
+
+const urlsForUser = function (id) {
+  let userDatabase = {};
+  for (let url of Object.keys(urlDatabase)) {
+    if (urlDatabase[url].userID === id) {
+      userDatabase[url] = { 
+        longURL: urlDatabase[url].longURL
+      }
+    }
+  }
+  return userDatabase;
 };
 
 app.get("/", (req, res) => {
@@ -69,11 +82,16 @@ app.get("/", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
+  if (req.cookies["user_id"]) {
   const templateVars = {
-    urls: urlDatabase,
+    urls: urlsForUser(req.cookies["user_id"]),
     user: users[req.cookies["user_id"]],
   };
   res.render("urls_index", templateVars);
+  } else {
+    res.redirect("/login");
+  }
+
 });
 
 app.get("/urls/new", (req, res) => {
@@ -84,12 +102,17 @@ app.get("/urls/new", (req, res) => {
 });
 
 app.get("/urls/:shortURL", (req, res) => {
-  const templateVars = {
-    user: users[req.cookies["user_id"]],
-    shortURL: req.params.shortURL,
-    longURL: urlDatabase[req.params.shortURL],
-  };
-  res.render("urls_show", templateVars);
+  if (req.cookies["user_id"]) {
+    const shortURL = req.params.shortURL;
+    const templateVars = {
+      shortURL,
+      longURL: urlDatabase[shortURL].longURL,
+      user: users[req.cookies["user_id"]],
+    }
+    res.render("urls_show", templateVars);
+  } else {
+    res.redirect("/login")
+  }
 });
 
 app.get("/urls.json", (req, res) => {
@@ -98,12 +121,15 @@ app.get("/urls.json", (req, res) => {
 
 app.post("/urls", (req, res) => {
   let shortURL = generateRandomString();
-  urlDatabase[shortURL] = req.body.longURL;
+  urlDatabase[shortURL] = {
+    longURL: req.body.longURL,
+    userID: req.cookies["user_id"]
+  };
   res.redirect(`/urls/${shortURL}`);
 });
 
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = `http://${urlDatabase[req.params.shortURL]}`;
+  const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
 });
 // edit URL
@@ -114,6 +140,17 @@ app.post("/urls/:id", (req, res) => {
 
 app.post("/urls/:shortid/edit", (req, res) => {
 const shortid = req.params.shortid
+const cookie = req.cookies["user_id"]
+const newURL = req.body.editURL
+if (cookie) {
+  urlDatabase[shortid] = { 
+    longURL: newURL,
+    userID: cookie
+  }
+} else {
+  res.redirect('/login');
+}
+
   res.redirect(`/urls/${shortid}`);
 })
 // deletes URL
@@ -128,11 +165,9 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 
 app.post("/login", (req, res) => {
 
-  const user_id = urlIDLookup(req.body.email)
+  const user_id = urlIDLookup(req.body.email);
   if (emailLookup(req.body.email)) {
     if (passwordLookup(req.body.password)) {
-      console.log(req.body.password)
-      console.log(user_id)
       res.cookie("user_id", user_id);
       return res.redirect("/urls")
     } else {
@@ -147,12 +182,15 @@ app.post("/login", (req, res) => {
 
 app.get("/logout", (req, res) => {
   res.clearCookie("user_id");
+  console.log("Did i come here?")
   res.redirect("/register");
 });
 
 
 app.get("/register", (req, res) => {
   const templateVars = { user: users[req.cookies["user_id"]] };
+  console.log(templateVars)
+  console.log("Why am i here")
   res.render("urls_register", templateVars);
 });
 
