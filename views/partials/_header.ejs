@@ -4,34 +4,25 @@
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
-    <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+    <div class="collapse navbar-collapse" id="navbarNavAltMarkup" style="margin-right: 1150px; > 
       <div class="navbar-nav">
         <a class="nav-item nav-link" href="/urls">My URLs</a>
         <a class="nav-item nav-link" href="/urls/new">Create New URL</a>
       </div>
     </div>
-    <%if (username) { %>
-      <div class="logout" style="margin-left: 200px;">
-        <form class="form-inline" action="/logout" method="GET">
-          <a class="logged in as" style="margin-right:10px">Logged In As: <%=username%></a>
-          <button type="submit" class="btn btn-primary">Logout</button>
-      </form>
-
-    <% } else { %>
-      
-      <div class="login" style="margin-left: 200px;">
-        <form class="form-inline" action="/login" method="POST">
-          <label>Username: </label>
-          <input
-          class="center"
-          type="text"
-          name="username"
-          placeholder="Enter Username"
-          style="margin: 1em"
-        /> <button type="submit" class="btn btn-primary">Submit</button>
-      </form>
-
+      <% if (!user) { %> 
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+          <div class="navbar-nav">
+            <a class="nav-item nav-link" href="/login">Login</a>
+            <a class="nav-item nav-link" href="/register">Register</a>
+          </div>
+        <% } else { %>
+          <div class="form-inline">
+            <form class="form-inline" action="/logout" method="GET" style="margin-left: 100px;">
+              <a class="logged in as">Logged In As: <%=user.email%></a>
+              <button type="submit" class="btn btn-primary" style="margin-right: 100px;">Logout</button>
     <% } %>
     </div>
   </nav>
 </header>
+
