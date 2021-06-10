@@ -2,20 +2,25 @@ const express = require("express");
 const app = express();
 const PORT = 8080;
 const bodyParser = require("body-parser");
-const cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session')
 const { response, request } = require("express");
+const bcrypt = require("bcrypt");
 app.use(bodyParser.urlencoded({extended: true}));
-app.set("view engine", "ejs")
-app.use(cookieParser())
+app.set("view engine", "ejs");
+app.use(cookieSession({
+  name: 'session',
+  keys: ['key1', 'key2']
+}));
+
 
 //Generates random string for shortURL use
-const generateRandomString = function () {
+const generateRandomString = function() {
   const characters = 'abcdefghijklmnopqrstuvwxyz';
   let results = '';
   const charactersLength = characters.length;
   const randomLength = 6;
   for (let i = 0; i < randomLength; i++) {
-    results += characters.charAt(Math.floor(Math.random() * charactersLength))
+    results += characters.charAt(Math.floor(Math.random() * charactersLength));
   }
   return results;
 };
@@ -23,48 +28,45 @@ const generateRandomString = function () {
 //Helper function for looking up email exists
 const emailLookup = function(input) {
   for (let user of Object.values(users)) {
-
     if (user.email === input) {
-      return true;
+      return user;
     }
   }
-  return null
-}
+  return false;
+};
 
 //Helper function for looking up Id from email
-const urlIDLookup = function (input) {
+const urlIDLookup = function(input) {
   for (let user of Object.keys(users)) {
-      if (users[user].email === input) {
-        return users[user].id;
-      }
+    if (users[user].email === input) {
+      return users[user].id;
+    }
   }
-}
+};
 
 //Helper function for looking up password matches
 const passwordLookup = function(input) {
   for (let user of Object.values(users)) {
-    if (user.password === input) {
+    if (bcrypt.compareSync(input, user.password)) {
       return true;
-    } else {
-   
     }
   }
   return false;
-}
+};
 
-//Users 
-let users = { 
+//Users
+let users = {
   "userRandomID": {
-    id: "userRandomID", 
-    email: "user@example.com", 
+    id: "userRandomID",
+    email: "user@example.com",
     password: "1234"
   },
- "user2RandomID": {
-    id: "user2RandomID", 
-    email: "user2@example.com", 
+  "user2RandomID": {
+    id: "user2RandomID",
+    email: "user2@example.com",
     password: "9876"
   }
-}
+};
 
 //URLS
 let urlDatabase = {
@@ -73,13 +75,13 @@ let urlDatabase = {
 };
 
 //URLS for specific users
-const urlsForUser = function (id) {
+const urlsForUser = function(id) {
   let userDatabase = {};
   for (let url of Object.keys(urlDatabase)) {
     if (urlDatabase[url].userID === id) {
-      userDatabase[url] = { 
+      userDatabase[url] = {
         longURL: urlDatabase[url].longURL
-      }
+      };
     }
   }
   return userDatabase;
@@ -91,12 +93,13 @@ app.get("/", (req, res) => {
 
 // /urls page
 app.get("/urls", (req, res) => {
-  if (req.cookies["user_id"]) {
-  const templateVars = {
-    urls: urlsForUser(req.cookies["user_id"]),
-    user: users[req.cookies["user_id"]],
-  };
-  res.render("urls_index", templateVars);
+  const userCookie = req.session.user_id;
+  if (userCookie) {
+    const templateVars = {
+      urls: urlsForUser(userCookie),
+      user: users[userCookie],
+    };
+    res.render("urls_index", templateVars);
   } else {
     res.redirect("/login");
   }
@@ -105,37 +108,40 @@ app.get("/urls", (req, res) => {
 
 // /urs/new page
 app.get("/urls/new", (req, res) => {
+  const userCookie = req.session.user_id;
   const templateVars = {
-    user: users[req.cookies["user_id"]],
+    user: users[userCookie],
   };
   res.render("urls_new", templateVars);
 });
 
 // /urls/:shortURL page
 app.get("/urls/:shortURL", (req, res) => {
-  if (req.cookies["user_id"]) {
+  const userCookie = req.session.user_id;
+  if (userCookie) {
     const shortURL = req.params.shortURL;
     const templateVars = {
       shortURL,
       longURL: urlDatabase[shortURL].longURL,
-      user: users[req.cookies["user_id"]],
-    }
+      user: users[userCookie],
+    };
     res.render("urls_show", templateVars);
   } else {
-    res.redirect("/login")
+    res.redirect("/login");
   }
 });
 
 app.get("/urls.json", (req, res) => {
-  res.json(urlDatabase);
+  res.json(users);
 });
 
 // Getting information from /urls page
 app.post("/urls", (req, res) => {
+  const userCookie = req.session.user_id;
   let shortURL = generateRandomString();
   urlDatabase[shortURL] = {
     longURL: req.body.longURL,
-    userID: req.cookies["user_id"]
+    userID: userCookie
   };
   res.redirect(`/urls`);
 });
@@ -153,20 +159,21 @@ app.post("/urls/:id", (req, res) => {
 });
 //edit URL
 app.post("/urls/:shortid/edit", (req, res) => {
-const shortid = req.params.shortid
-const cookie = req.cookies["user_id"]
-const newURL = req.body.editURL
-if (cookie) {
-  urlDatabase[shortid] = { 
-    longURL: newURL,
-    userID: cookie
+  const userCookie = req.session.user_id;
+  const shortid = req.params.shortid;
+  const cookie = userCookie;
+  const newURL = req.body.editURL;
+  if (cookie) {
+    urlDatabase[shortid] = {
+      longURL: newURL,
+      userID: cookie
+    };
+  } else {
+    res.redirect('/login');
   }
-} else {
-  res.redirect('/login');
-}
 
   res.redirect(`/urls/${shortid}`);
-})
+});
 
 // deletes URL
 app.post("/urls/:shortURL/delete", (req, res) => {
@@ -177,31 +184,28 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 
 //login accepts data from login form, authenticates user
 app.post("/login", (req, res) => {
-
-  const user_id = urlIDLookup(req.body.email);
-  if (emailLookup(req.body.email)) {
-    if (passwordLookup(req.body.password)) {
-      res.cookie("user_id", user_id);
-      return res.redirect("/urls")
-    } else {
-      res.status(403).send("Whoops something is wrong!");
-    }
-  } else {
-    res.status(403).send("Whoos something is wrong!");
-    return false;
+  const email = req.body.email;
+  const password = req.body.password;
+  const user = emailLookup(email);
+  if (email.length === 0 || password.length === 0) {
+    res.status(403).send("Email or Password is not valid");
+  } else if (!user && !bcrypt.compareSync(password, user.password)) {
+    res.status(403).send("User or password is not matched");
   }
-  
+  req.session.user_id = `${user.id}`;
+  res.redirect("/urls");
 });
 
 //Logout
 app.get("/logout", (req, res) => {
-  res.clearCookie("user_id");
+  req.session = null;
   res.redirect("/register");
 });
 
 //Registration page
 app.get("/register", (req, res) => {
-  const templateVars = { user: users[req.cookies["user_id"]] };
+  const userCookie = req.session.user_id;
+  const templateVars = { user: users[userCookie] };
   res.render("urls_register", templateVars);
 });
 
@@ -209,31 +213,26 @@ app.get("/register", (req, res) => {
 app.post("/register", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
+  const hashPassword = bcrypt.hashSync(password, 10);
   const id = generateRandomString();
-  const user = { id, email, password };
-  const templateVars = { email };
-
-
+  const user = { id, email, password: hashPassword };
   if (Object.values(req.body).some((value) => value === "")) {
-    res.status(400).send("Email and Password Cannot Be Empty");
-  } 
+    return res.status(400).send("Email and Password Cannot Be Empty");
+  }
   if (emailLookup(email)) {
-    res.status(400).send("Email has already been taken, please use another email");
+    return res.status(400).send("Email has already been taken, please use another email");
   }
-  users[id] = {
-    id: id,
-    email: email,
-    password: password
-  }
-  res.cookie('user_id', id);
+  users[id] = user;
+  req.session.user_id = `${id}`;
   res.redirect("/urls");
 });
 
 //Login Page
 app.get("/login", (req, res) => {
-  const templateVars = { user: users[req.cookies["user_id"]] };
-  res.render("urls_login", templateVars)
-})
+  const userCookie = req.session.user_id;
+  const templateVars = { user: users[userCookie] };
+  res.render("urls_login", templateVars);
+});
 
 //Server start and message
 app.listen(PORT, () => {
