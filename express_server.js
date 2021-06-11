@@ -71,7 +71,7 @@ app.get("/urls/:shortURL", (req, res) => {
     };
     res.render("urls_show", templateVars);
   } else {
-    res.redirect("/login");
+    res.status(403).send("Must be logged in");
   }
 });
 
@@ -82,6 +82,9 @@ app.get("/urls.json", (req, res) => {
 // Getting information from /urls page
 app.post("/urls", (req, res) => {
   const userCookie = req.session.user_id;
+  if (!userCookie) {
+    res.status(403).send("Please login")
+  }
   let shortURL = generateRandomString();
   urlDatabase[shortURL] = {
     longURL: req.body.longURL,
@@ -92,25 +95,23 @@ app.post("/urls", (req, res) => {
 
 //Redirection to longURL from shortURL
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL].longURL;
-  res.redirect(longURL);
+  if (!urlDatabase[req.params.shortURL]) {
+    res.status(404).send("Page not found");
+  } else {
+    const longURL = urlDatabase[req.params.shortURL].longURL;
+    return res.redirect(longURL);
+  }
 });
 
-// edit URL
-app.post("/urls/:id", (req, res) => {
-  urlDatabase[req.params.id] = req.body.editURL;
-  res.redirect("/urls");
-});
 //edit URL
 app.post("/urls/:shortid/edit", (req, res) => {
   const userCookie = req.session.user_id;
   const shortid = req.params.shortid;
-  const cookie = userCookie;
   const newURL = req.body.editURL;
-  if (cookie) {
+  if (userCookie) {
     urlDatabase[shortid] = {
       longURL: newURL,
-      userID: cookie
+      userID: userCookie
     };
   } else {
     res.redirect('/login');
@@ -120,8 +121,13 @@ app.post("/urls/:shortid/edit", (req, res) => {
 
 // deletes URL
 app.post("/urls/:shortURL/delete", (req, res) => {
-  delete urlDatabase[req.params.shortURL];
-  res.redirect("/urls");
+  const userCookie = req.session.user_id;
+  if (userCookie) {
+    delete urlDatabase[req.params.shortURL];
+    res.redirect("/urls");
+  } else {
+    res.status(403).send("Do not have permission");
+  }
 });
 
 //login accepts data from login form, authenticates user
@@ -141,7 +147,7 @@ app.post("/login", (req, res) => {
 //Logout
 app.get("/logout", (req, res) => {
   req.session = null;
-  res.redirect("/register");
+  res.redirect("/urls");
 });
 
 //Registration page
