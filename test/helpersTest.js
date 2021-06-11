@@ -20,13 +20,10 @@ describe('emailLookup', function() {
     const user = emailLookup("user@example.com", testUsers);
     const expectedOutput = "userRandomID";
     assert.equal(user, expectedOutput);
-    // Write your assert statement here
-    
   });
   it('should return undefined with a not valid email', function() {
     const user = emailLookup("hello@example.com", testUsers);
     const expectedOutput = "undefined";
     assert.equal(user, expectedOutput);
-    // Write your assert statement here
   });
 });

@@ -13,30 +13,23 @@ app.use(cookieSession({
 }));
 const { generateRandomString, emailLookup, urlsForUser } = require('../tinyapp/helpers');
 
-//Users
-const passwordOne = "1234"; // found in the req.params object
-const hashedPasswordOne = bcrypt.hashSync(passwordOne, 10);
-const passwordTwo = "dishwasher-funk";
-const hashedPasswordTwo = bcrypt.hashSync(passwordTwo, 10);
 let users = {
   "userRandomID": {
     id: "userRandomID",
     email: "user@example.com",
-    password: hashedPasswordOne
+    password: bcrypt.hashSync('1234', 10)
   },
   "user2RandomID": {
     id: "user2RandomID",
     email: "user2@example.com",
-    password: hashedPasswordTwo
+    password: bcrypt.hashSync('dishwasher-funk', 10)
   }
 };
 
-//URLS
 let urlDatabase = {
   b6UTxQ: { longURL: "https://www.tsn.ca", userID: "userRandomID" },
   i3BoGr: { longURL: "https://www.google.ca", userID: "user2RandomID" }
 };
-
 
 app.get("/", (req, res) => {
   res.send("Hello!");
@@ -127,7 +120,6 @@ app.post("/urls/:shortid/edit", (req, res) => {
 
 // deletes URL
 app.post("/urls/:shortURL/delete", (req, res) => {
-
   delete urlDatabase[req.params.shortURL];
   res.redirect("/urls");
 });
@@ -137,7 +129,6 @@ app.post("/login", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
   const user = emailLookup(email, users);
-
   if (email.length === 0 || password.length === 0) {
     res.status(403).send("Email or Password is not valid");
   } else if (!user && !bcrypt.compareSync(password, user.password)) {

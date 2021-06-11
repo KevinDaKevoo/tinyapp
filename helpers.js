@@ -20,6 +20,7 @@ const emailLookup = function(input, data) {
   return "undefined";
 };
 
+//Helper function for storing URLs for users
 const urlsForUser = function(id, urlDatabase) {
   let userDatabase = {};
   for (let url of Object.keys(urlDatabase)) {
