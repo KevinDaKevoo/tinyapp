@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 const PORT = 8080;
 const bodyParser = require("body-parser");
-const cookieSession = require('cookie-session')
+const cookieSession = require('cookie-session');
 const { response, request } = require("express");
 const bcrypt = require("bcrypt");
 app.use(bodyParser.urlencoded({extended: true}));
@@ -11,60 +11,23 @@ app.use(cookieSession({
   name: 'session',
   keys: ['key1', 'key2']
 }));
-
-
-//Generates random string for shortURL use
-const generateRandomString = function() {
-  const characters = 'abcdefghijklmnopqrstuvwxyz';
-  let results = '';
-  const charactersLength = characters.length;
-  const randomLength = 6;
-  for (let i = 0; i < randomLength; i++) {
-    results += characters.charAt(Math.floor(Math.random() * charactersLength));
-  }
-  return results;
-};
-
-//Helper function for looking up email exists
-const emailLookup = function(input) {
-  for (let user of Object.values(users)) {
-    if (user.email === input) {
-      return user;
-    }
-  }
-  return false;
-};
-
-//Helper function for looking up Id from email
-const urlIDLookup = function(input) {
-  for (let user of Object.keys(users)) {
-    if (users[user].email === input) {
-      return users[user].id;
-    }
-  }
-};
-
-//Helper function for looking up password matches
-const passwordLookup = function(input) {
-  for (let user of Object.values(users)) {
-    if (bcrypt.compareSync(input, user.password)) {
-      return true;
-    }
-  }
-  return false;
-};
+const { generateRandomString, emailLookup, urlsForUser } = require('../tinyapp/helpers');
 
 //Users
+const passwordOne = "1234"; // found in the req.params object
+const hashedPasswordOne = bcrypt.hashSync(passwordOne, 10);
+const passwordTwo = "dishwasher-funk";
+const hashedPasswordTwo = bcrypt.hashSync(passwordTwo, 10);
 let users = {
   "userRandomID": {
     id: "userRandomID",
     email: "user@example.com",
-    password: "1234"
+    password: hashedPasswordOne
   },
   "user2RandomID": {
     id: "user2RandomID",
     email: "user2@example.com",
-    password: "9876"
+    password: hashedPasswordTwo
   }
 };
 
@@ -74,18 +37,6 @@ let urlDatabase = {
   i3BoGr: { longURL: "https://www.google.ca", userID: "user2RandomID" }
 };
 
-//URLS for specific users
-const urlsForUser = function(id) {
-  let userDatabase = {};
-  for (let url of Object.keys(urlDatabase)) {
-    if (urlDatabase[url].userID === id) {
-      userDatabase[url] = {
-        longURL: urlDatabase[url].longURL
-      };
-    }
-  }
-  return userDatabase;
-};
 
 app.get("/", (req, res) => {
   res.send("Hello!");
@@ -96,7 +47,7 @@ app.get("/urls", (req, res) => {
   const userCookie = req.session.user_id;
   if (userCookie) {
     const templateVars = {
-      urls: urlsForUser(userCookie),
+      urls: urlsForUser(userCookie, urlDatabase),
       user: users[userCookie],
     };
     res.render("urls_index", templateVars);
@@ -171,8 +122,7 @@ app.post("/urls/:shortid/edit", (req, res) => {
   } else {
     res.redirect('/login');
   }
-
-  res.redirect(`/urls/${shortid}`);
+  res.redirect(`/urls`);
 });
 
 // deletes URL
@@ -186,13 +136,14 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 app.post("/login", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  const user = emailLookup(email);
+  const user = emailLookup(email, users);
+
   if (email.length === 0 || password.length === 0) {
     res.status(403).send("Email or Password is not valid");
   } else if (!user && !bcrypt.compareSync(password, user.password)) {
     res.status(403).send("User or password is not matched");
   }
-  req.session.user_id = `${user.id}`;
+  req.session.user_id = user.id;
   res.redirect("/urls");
 });
 
@@ -218,13 +169,14 @@ app.post("/register", (req, res) => {
   const user = { id, email, password: hashPassword };
   if (Object.values(req.body).some((value) => value === "")) {
     return res.status(400).send("Email and Password Cannot Be Empty");
-  }
-  if (emailLookup(email)) {
+  } else if (emailLookup(email, users) !== "undefined") {
     return res.status(400).send("Email has already been taken, please use another email");
+  } else {
+    users[id] = user;
+    req.session.user_id = `${id}`;
+    res.redirect("/urls");
   }
-  users[id] = user;
-  req.session.user_id = `${id}`;
-  res.redirect("/urls");
+ 
 });
 
 //Login Page
