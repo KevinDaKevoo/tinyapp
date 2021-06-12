@@ -3,7 +3,6 @@ const app = express();
 const PORT = 8080;
 const bodyParser = require("body-parser");
 const cookieSession = require('cookie-session');
-const { response, request } = require("express");
 const bcrypt = require("bcrypt");
 app.use(bodyParser.urlencoded({extended: true}));
 app.set("view engine", "ejs");
@@ -11,9 +10,9 @@ app.use(cookieSession({
   name: 'session',
   keys: ['key1', 'key2']
 }));
-const { generateRandomString, emailLookup, urlsForUser } = require('../tinyapp/helpers');
+const { generateRandomString, emailLookup, urlsForUser } = require("./helpers");
 
-let users = {
+const users = {
   "userRandomID": {
     id: "userRandomID",
     email: "user@example.com",
@@ -26,13 +25,17 @@ let users = {
   }
 };
 
-let urlDatabase = {
+const urlDatabase = {
   b6UTxQ: { longURL: "https://www.tsn.ca", userID: "userRandomID" },
   i3BoGr: { longURL: "https://www.google.ca", userID: "user2RandomID" }
 };
 
 app.get("/", (req, res) => {
-  res.send("Hello!");
+  if (req.session.user_id) {
+    res.redirect("/urls");
+  } else {
+    res.redirect("/login");
+  }
 });
 
 // /urls page
@@ -56,7 +59,11 @@ app.get("/urls/new", (req, res) => {
   const templateVars = {
     user: users[userCookie],
   };
-  res.render("urls_new", templateVars);
+  if (userCookie) {
+    res.render("urls_new", templateVars);
+  } else {
+    res.status(401).send("Please Sign In To Create URL");
+  }
 });
 
 // /urls/:shortURL page
@@ -83,7 +90,7 @@ app.get("/urls.json", (req, res) => {
 app.post("/urls", (req, res) => {
   const userCookie = req.session.user_id;
   if (!userCookie) {
-    res.status(403).send("Please login")
+    res.status(403).send("Please login");
   }
   let shortURL = generateRandomString();
   urlDatabase[shortURL] = {
@@ -108,25 +115,32 @@ app.post("/urls/:shortid/edit", (req, res) => {
   const userCookie = req.session.user_id;
   const shortid = req.params.shortid;
   const newURL = req.body.editURL;
-  if (userCookie) {
+  if (!users[userCookie]) {
+    return res.status(401).send("Please Sign In To View This Page");
+  } else if (userCookie !== urlDatabase[shortid].userID) {
+    return res.status("401").send("Not Authorized");
+   
+  } else {
     urlDatabase[shortid] = {
       longURL: newURL,
       userID: userCookie
     };
-  } else {
-    res.redirect('/login');
+    res.redirect(`/urls`);
   }
-  res.redirect(`/urls`);
+  
 });
 
 // deletes URL
 app.post("/urls/:shortURL/delete", (req, res) => {
   const userCookie = req.session.user_id;
-  if (userCookie) {
+  const shortid = req.params.shortURL;
+  if (!users[userCookie]) {
+    return res.status(401).send("Please Sign In To View This Page");
+  } else if (userCookie !== urlDatabase[shortid].userID) {
+    return res.status(401).send("Not Authorized");
+  } else {
     delete urlDatabase[req.params.shortURL];
     res.redirect("/urls");
-  } else {
-    res.status(403).send("Do not have permission");
   }
 });
 
@@ -136,12 +150,13 @@ app.post("/login", (req, res) => {
   const password = req.body.password;
   const user = emailLookup(email, users);
   if (email.length === 0 || password.length === 0) {
-    res.status(403).send("Email or Password is not valid");
-  } else if (!user && !bcrypt.compareSync(password, user.password)) {
-    res.status(403).send("User or password is not matched");
+    return res.status(403).send("Email or Password cannot be empty");
+  } else if (!user || !bcrypt.compareSync(password, user.password)) {
+    return res.status(403).send("User or password is not matched");
+  } else  {
+    req.session.user_id = user.id;
+    return res.redirect("/urls");
   }
-  req.session.user_id = user.id;
-  res.redirect("/urls");
 });
 
 //Logout
@@ -166,7 +181,7 @@ app.post("/register", (req, res) => {
   const user = { id, email, password: hashPassword };
   if (Object.values(req.body).some((value) => value === "")) {
     return res.status(400).send("Email and Password Cannot Be Empty");
-  } else if (emailLookup(email, users) !== "undefined") {
+  } else if (emailLookup(email, users) !== undefined) {
     return res.status(400).send("Email has already been taken, please use another email");
   } else {
     users[id] = user;

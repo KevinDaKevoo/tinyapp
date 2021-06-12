@@ -17,7 +17,7 @@ const emailLookup = function(input, data) {
       return data[userID];
     }
   }
-  return "undefined";
+  return undefined;
 };
 
 //Helper function for storing URLs for users
